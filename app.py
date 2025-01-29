@@ -1,28 +1,19 @@
-import os
+import asyncio
 import re
-from flask import Flask, request, jsonify
-from telegram import Update, ReplyKeyboardMarkup, Bot
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
     filters,
-    ContextTypes,
-    Dispatcher
+    ContextTypes
 )
 from huggingface_hub import InferenceClient
 
-app = Flask(__name__)
-
-# Initialize clients with environment variables
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN', '7692733567:AAGuZfNs2tB29oG8cRFEat9zpbb9g_QItdg')
-HF_TOKEN = os.environ.get('HF_TOKEN', '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')
-
-client = InferenceClient(token=HF_TOKEN)
-bot = Bot(token=TELEGRAM_TOKEN)
-
-# Webhook setup
-WEBHOOK_URL = os.environ.get('WEBHOOK_URL', 'https://your-render-app.onrender.com/webhook')
+client = InferenceClient(
+    provider="together",
+    api_key="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"
+)
 
 MENU_KEYBOARD = ReplyKeyboardMarkup(
     keyboard=[
@@ -34,8 +25,11 @@ MENU_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 def sanitize_html(text: str) -> str:
-    """Remove unsupported HTML tags from DeepSeek responses"""
-    clean_text = re.sub(r'<\/?(think|rationale|step|context)[^>]*>', '', text)
+    """Format bold text using HTML tags and clean unwanted markup"""
+    # Convert **text** to <b>text</b>
+    clean_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+    # Remove other unsupported tags
+    clean_text = re.sub(r'<\/?(think|rationale|step|context)[^>]*>', '', clean_text)
     return clean_text.replace('\n\n', '\n').strip()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,16 +51,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_input in ["ℹ️ About", "❓ Help", "🛠 Settings"]:
         if user_input == "ℹ️ About":
             about_msg = """<b>🔍 About This Bot</b>
-            Version: 2.0
-            Model: <b>DeepSeek-R1</b>"""
+            
+• Version: 2.0
+• Model: <b>DeepSeek-R1</b>
+• Provider: <b>Hugging Face</b>"""
             await update.message.reply_html(about_msg)
         elif user_input == "❓ Help":
             help_msg = """<b>🆘 Help</b>
-            Just ask your question!"""
+            
+Just type your question naturally like:
+• <i>"Explain quantum computing"</i>
+• <i>"Who is Bangabandhu?"</i>
+• <i>"How to make biryani?"</i>"""
             await update.message.reply_html(help_msg)
         elif user_input == "🛠 Settings":
             settings_msg = """<b>⚙️ Settings</b>
-            Max tokens: 500"""
+            
+• Max tokens: <b>500</b>
+• Response style: <b>Detailed</b>
+• Language: <b>English</b>"""
             await update.message.reply_html(settings_msg)
         return
     
@@ -78,20 +81,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         status_msg = await update.message.reply_html("<i>🧠 Processing...</i>")
         
-        response = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: client.chat.completions.create(
-                model="deepseek-ai/DeepSeek-R1",
-                messages=[{"role": "user", "content": user_input}],
-                max_tokens=500,
-                stream=False
-            )
-        )
+        max_retries = 3
+        response = None
+        
+        for attempt in range(max_retries):
+            try:
+                response = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: client.chat.completions.create(
+                        model="deepseek-ai/DeepSeek-R1",
+                        messages=[{"role": "user", "content": user_input}],
+                        max_tokens=500,
+                        stream=False
+                    )
+                )
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    await status_msg.edit_text(
+                        f"<i>⏳ Retrying in {wait_time}s...</i>", 
+                        parse_mode='HTML'
+                    )
+                    await asyncio.sleep(wait_time)
+                else:
+                    raise
 
         raw_response = response.choices[0].message.content
         clean_response = sanitize_html(raw_response)
         
-        formatted_response = f"<b>🤖 Answer:</b>\n\n{clean_response}"
+        formatted_response = f"""
+        <b>🤖 Answer:</b>
+        
+        {clean_response}
+        """
         chunks = [formatted_response[i:i+4096] for i in range(0, len(formatted_response), 4096)]
         
         await status_msg.edit_text(chunks[0], parse_mode='HTML')
@@ -103,33 +126,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         error_msg = f"<b>❌ Error:</b>\n<code>{str(e)}</code>"
         await status_msg.edit_text(error_msg[:4096], parse_mode='HTML')
 
-# Initialize Flask app with Telegram webhook
-@app.route('/webhook', methods=['POST'])
-async def webhook():
-    if request.method == "POST":
-        update = Update.de_json(request.get_json(), bot)
-        
-        # Create dispatcher
-        dispatcher = Dispatcher(bot, None, workers=0)
-        dispatcher.add_handler(CommandHandler("start", start))
-        dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        
-        await dispatcher.process_update(update)
-        return jsonify(success=True)
+def main():
+    app = Application.builder().token("7692733567:AAGuZfNs2tB29oG8cRFEat9zpbb9g_QItdg").build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    print("🤖 Bot is starting...")
+    app.run_polling()
+    print("✅ Bot is running!")
 
-@app.route('/health')
-def health_check():
-    return "OK", 200
-
-@app.route('/set_webhook')
-def set_webhook():
-    # Set webhook on Render deployment
-    webhook_url = f"{WEBHOOK_URL}/webhook"
-    s = bot.set_webhook(webhook_url)
-    if s:
-        return f"Webhook setup OK: {webhook_url}"
-    return "Webhook setup failed"
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    main()
