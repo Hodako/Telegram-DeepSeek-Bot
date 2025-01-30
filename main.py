@@ -21,7 +21,7 @@ def webhook():
         else:
             response_text = get_deepseek_response(user_input)
         
-        send_message(chat_id, response_text, parse_mode="HTML")
+        send_message(chat_id, response_text)
         return jsonify(success=True)
     return jsonify(success=False)
 
@@ -35,12 +35,11 @@ def get_deepseek_response(prompt):
     except Exception as e:
         return f"⚠️ Error: {str(e)}"
 
-def send_message(chat_id, text, parse_mode="Markdown"):
+def send_message(chat_id, text):
     TELEGRAM_API_URL = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendMessage"
     payload = {
         'chat_id': chat_id,
-        'text': text,
-        'parse_mode': parse_mode
+        'text': text
     }
     response = requests.post(TELEGRAM_API_URL, json=payload)
     return response.json()
