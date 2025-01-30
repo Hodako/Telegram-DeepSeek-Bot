@@ -1,15 +1,17 @@
 import os
 import replicate
+import requests
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Initialize Replicate client
+# Initialize Replicate client with API token
 REPLICATE_CLIENT = replicate.Client(api_token=os.getenv('REPLICATE_API_TOKEN'))
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
+    
     if 'message' in data:
         chat_id = data['message']['chat']['id']
         user_input = data['message']['text']
@@ -39,7 +41,9 @@ def send_message(chat_id, text):
         'chat_id': chat_id,
         'text': text
     }
-    requests.post(TELEGRAM_API_URL, json=payload)
+    response = requests.post(TELEGRAM_API_URL, json=payload)
+    return response.json()
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
