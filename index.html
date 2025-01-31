@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .chat-container {
+            width: 400px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .chat-window {
+            padding: 10px;
+            flex: 1;
+            overflow-y: auto;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .chat-input button {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+
+        .model-switcher {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .about-info {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .typing {
+            animation: typing 1s steps(40, end) infinite;
+        }
+
+        @keyframes typing {
+            0% {
+                width: 0;
+            }
+            100% {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>Chatbot</h2>
+            <button id="about-btn">About</button>
+        </div>
+        <div class="chat-window" id="chat-window"></div>
+        <div class="chat-input">
+            <input type="text" id="user-input" placeholder="Type a message...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+    <div class="model-switcher">
+        <label for="model-select">Choose a model:</label>
+        <select id="model-select">
+            <option value="deepseek-ai/deepseek-r1">DeepSeek-R1</option>
+            <option value="another-model">Another Model</option>
+        </select>
+    </div>
+    <div class="about-info" id="about-info">
+        <p>Bot made by <a href="https://twitter.com/azizul17T">@azizul17T</a></p>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const sendBtn = document.getElementById("send-btn");
+            const userInput = document.getElementById("user-input");
+            const chatWindow = document.getElementById("chat-window");
+            const aboutBtn = document.getElementById("about-btn");
+            const aboutInfo = document.getElementById("about-info");
+
+            sendBtn.addEventListener("click", function() {
+                const message = userInput.value.trim();
+                if (message) {
+                    addUserMessage(message);
+                    userInput.value = "";
+                    generateResponse(message);
+                }
+            });
+
+            aboutBtn.addEventListener("click", function() {
+                aboutInfo.style.display = aboutInfo.style.display === "none" ? "block" : "none";
+            });
+
+            function addUserMessage(message) {
+                const messageElem = document.createElement("div");
+                messageElem.className = "user-message";
+                messageElem.textContent = message;
+                chatWindow.appendChild(messageElem);
+            }
+
+            function addBotMessage(message) {
+                const messageElem = document.createElement("div");
+                messageElem.className = "bot-message typing";
+                messageElem.textContent = message;
+                chatWindow.appendChild(messageElem);
+                messageElem.scrollIntoView();
+            }
+
+            function generateResponse(userMessage) {
+                addBotMessage("Generating...");
+                fetch('/webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: { chat: { id: 1 }, text: userMessage } })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const botMessageElem = document.querySelector(".bot-message.typing");
+                    botMessageElem.classList.remove("typing");
+                    botMessageElem.textContent = data.success ? data.message : "Error generating response";
+                })
+                .catch(error => {
+                    const botMessageElem = document.querySelector(".bot-message.typing");
+                    botMessageElem.classList.remove("typing");
+                    botMessageElem.textContent = "Error: " + error.message;
+                });
+            }
+        });
+    </script>
+</body>
+</html>
