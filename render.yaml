@@ -1,0 +1,8 @@
+# render.yaml
+services:
+  - type: web
+    name: flask-app
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: gunicorn -w 4 -b 0.0.0.0:10000 wsgi:app
