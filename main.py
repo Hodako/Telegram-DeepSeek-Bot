@@ -14,68 +14,41 @@ def webhook():
     
     if 'message' in data:
         chat_id = data['message']['chat']['id']
-        user_input = data['message']['text'].lower()
+        user_input = data['message']['text']
         
-        if user_input in ['/start', 'menu']:
-            response_text = show_menu()
-        elif user_input == 'exit':
-            response_text = "Goodbye!"
-        elif user_input == '/help':
-            response_text = show_help()
-        elif user_input == '/about':
-            response_text = about_bot()
-        elif user_input == '/developer':
-            response_text = developer_info()
+        if user_input.startswith('/'):
+            command = user_input.lower()
+            if command in ['/start', '/help']:
+                menu_text = """🤖 Welcome to DeepSeek Chat Bot!
+                
+Available commands:
+/start - Start the bot
+/help - Show this help menu
+/exit - Exit the conversation
+
+You can send unlimited messages! I'll respond to anything you ask."""
+                send_message(chat_id, menu_text)
+            elif command in ['/exit', '/quit']:
+                send_message(chat_id, "Goodbye! Feel free to start again anytime. 👋")
+            else:
+                send_message(chat_id, "⚠️ Unknown command. Type /help for available options.")
         else:
-            response_text = get_deepseek_response(user_input)
+            # Send processing message and get its ID
+            processing_msg_id = send_message(chat_id, "⏳ Processing your request...")
+            try:
+                response_text = get_deepseek_response(user_input)
+                edit_message(chat_id, processing_msg_id, response_text)
+            except Exception as e:
+                edit_message(chat_id, processing_msg_id, f"⚠️ Error processing request: {str(e)}")
         
-        send_message(chat_id, response_text)
         return jsonify(success=True)
     return jsonify(success=False)
-
-def show_menu():
-    return """
-Choose an option:
-/start or /menu - Show this menu
-/exit - Exit the chat
-/help - Get help
-/about - About the bot
-/developer - Developer information
-Anything else - Get a response from the AI
-"""
-
-def show_help():
-    return """
-This bot uses AI to respond to your queries. You can use the following commands:
-/start or /menu - Show the menu options
-/exit - Exit the chat
-/help - Get help about using the bot
-/about - Information about the bot
-/developer - Information about the developer
-"""
-
-def about_bot():
-    return """
-DeepSeek Bot:
-- This bot uses advanced AI to respond to user queries.
-- It leverages the DeepSeek AI model for generating responses.
-- Version: 1.0.0
-"""
-
-def developer_info():
-    return """
-Developer Information:
-- Name: Hodako
-- Contact: example@example.com
-- GitHub: https://github.com/Hodako
-"""
 
 def get_deepseek_response(prompt):
     full_response = []
     try:
         for event in REPLICATE_CLIENT.stream("deepseek-ai/deepseek-r1", input={"prompt": prompt}):
-            chunk = str(event)
-            full_response.append(chunk)
+            full_response.append(str(event))
         return ''.join(full_response)
     except Exception as e:
         return f"⚠️ Error: {str(e)}"
@@ -87,7 +60,17 @@ def send_message(chat_id, text):
         'text': text
     }
     response = requests.post(TELEGRAM_API_URL, json=payload)
-    return response.json()
+    response_json = response.json()
+    return response_json.get('result', {}).get('message_id') if response_json.get('ok') else None
+
+def edit_message(chat_id, message_id, text):
+    TELEGRAM_API_URL = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/editMessageText"
+    payload = {
+        'chat_id': chat_id,
+        'message_id': message_id,
+        'text': text
+    }
+    requests.post(TELEGRAM_API_URL, json=payload)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
