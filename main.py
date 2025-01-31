@@ -14,12 +14,18 @@ def webhook():
     
     if 'message' in data:
         chat_id = data['message']['chat']['id']
-        user_input = data['message']['text']
+        user_input = data['message']['text'].lower()
         
-        if user_input.lower() in ['/start', 'menu']:
+        if user_input in ['/start', 'menu']:
             response_text = show_menu()
-        elif user_input.lower() == 'exit':
+        elif user_input == 'exit':
             response_text = "Goodbye!"
+        elif user_input == '/help':
+            response_text = show_help()
+        elif user_input == '/about':
+            response_text = about_bot()
+        elif user_input == '/developer':
+            response_text = developer_info()
         else:
             response_text = get_deepseek_response(user_input)
         
@@ -30,10 +36,38 @@ def webhook():
 def show_menu():
     return """
 Choose an option:
-/start - Show this menu
+/start or /menu - Show this menu
 /exit - Exit the chat
 /help - Get help
+/about - About the bot
+/developer - Developer information
 Anything else - Get a response from the AI
+"""
+
+def show_help():
+    return """
+This bot uses AI to respond to your queries. You can use the following commands:
+/start or /menu - Show the menu options
+/exit - Exit the chat
+/help - Get help about using the bot
+/about - Information about the bot
+/developer - Information about the developer
+"""
+
+def about_bot():
+    return """
+DeepSeek Bot:
+- This bot uses advanced AI to respond to user queries.
+- It leverages the DeepSeek AI model for generating responses.
+- Version: 1.0.0
+"""
+
+def developer_info():
+    return """
+Developer Information:
+- Name: Hodako
+- Contact: example@example.com
+- GitHub: https://github.com/Hodako
 """
 
 def get_deepseek_response(prompt):
