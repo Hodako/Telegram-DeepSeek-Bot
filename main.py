@@ -78,9 +78,22 @@ HTML_TEMPLATE = '''
             margin-left: 10px;
         }
 
-        .model-switcher {
-            margin-top: 20px;
-            text-align: center;
+        .menu-bar {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .menu-bar button {
+            background-color: white;
+            color: #007bff;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         .about-info {
@@ -106,9 +119,12 @@ HTML_TEMPLATE = '''
 </head>
 <body>
     <div class="chat-container">
+        <div class="menu-bar">
+            <button onclick="showAbout()">About</button>
+            <button onclick="toggleModelMenu()">Models</button>
+        </div>
         <div class="chat-header">
             <h2>Chatbot</h2>
-            <button id="about-btn">About</button>
         </div>
         <div class="chat-window" id="chat-window"></div>
         <div class="chat-input">
@@ -116,7 +132,7 @@ HTML_TEMPLATE = '''
             <button id="send-btn">Send</button>
         </div>
     </div>
-    <div class="model-switcher">
+    <div class="model-switcher" id="model-switcher" style="display: none;">
         <label for="model-select">Choose a model:</label>
         <select id="model-select">
             <option value="deepseek-ai/deepseek-r1">DeepSeek-R1</option>
@@ -131,7 +147,6 @@ HTML_TEMPLATE = '''
             const sendBtn = document.getElementById("send-btn");
             const userInput = document.getElementById("user-input");
             const chatWindow = document.getElementById("chat-window");
-            const aboutBtn = document.getElementById("about-btn");
             const aboutInfo = document.getElementById("about-info");
             const modelSelect = document.getElementById("model-select");
 
@@ -143,10 +158,6 @@ HTML_TEMPLATE = '''
                     userInput.value = "";
                     generateResponse(message, model);
                 }
-            });
-
-            aboutBtn.addEventListener("click", function() {
-                aboutInfo.style.display = aboutInfo.style.display === "none" ? "block" : "none";
             });
 
             function addUserMessage(message) {
@@ -204,6 +215,16 @@ HTML_TEMPLATE = '''
                 }, 50);
             }
         });
+
+        function showAbout() {
+            const aboutInfo = document.getElementById("about-info");
+            aboutInfo.style.display = aboutInfo.style.display === "none" ? "block" : "none";
+        }
+
+        function toggleModelMenu() {
+            const modelSwitcher = document.getElementById("model-switcher");
+            modelSwitcher.style.display = modelSwitcher.style.display === "none" ? "block" : "none";
+        }
     </script>
 </body>
 </html>
@@ -223,7 +244,9 @@ def webhook():
     user_input = data['message']['text']
     model = data.get('model', 'deepseek-ai/deepseek-r1')
 
-    if user_input.lower() in ['exit', 'quit']:
+    if user_input.lower() == '/start':
+        response_text = "Hey, This is DeepSeek AI. How can I help you?"
+    elif user_input.lower() in ['exit', 'quit']:
         response_text = "Goodbye!"
     else:
         response_text = get_deepseek_response(user_input, model)
