@@ -1,7 +1,7 @@
 import os
 import replicate
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
@@ -10,6 +10,10 @@ REPLICATE_API_TOKEN = os.getenv('REPLICATE_API_TOKEN')
 if not REPLICATE_API_TOKEN:
     raise ValueError("REPLICATE_API_TOKEN environment variable not set")
 REPLICATE_CLIENT = replicate.Client(api_token=REPLICATE_API_TOKEN)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
